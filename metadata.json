@@ -1,0 +1,7 @@
+{
+  "name": "LinguaScore AI",
+  "description": "An automated English scoring application for Vietnamese learners and tutors, featuring writing and speaking assessments powered by Gemini.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
