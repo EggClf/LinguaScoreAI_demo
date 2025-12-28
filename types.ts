@@ -1,3 +1,4 @@
+
 export enum AssessmentType {
   WRITING = 'WRITING',
   SPEAKING = 'SPEAKING'
@@ -7,7 +8,16 @@ export enum ViewMode {
   DASHBOARD = 'DASHBOARD',
   WRITING = 'WRITING',
   SPEAKING = 'SPEAKING',
-  TUTOR = 'TUTOR'
+  TUTOR = 'TUTOR',
+  TUTOR_PORTAL = 'TUTOR_PORTAL',
+  GAMIFICATION = 'GAMIFICATION'
+}
+
+export enum AssessmentStatus {
+  PENDING_AI = 'PENDING_AI',
+  AI_ESTIMATE = 'AI_ESTIMATE',
+  PENDING_HUMAN = 'PENDING_HUMAN',
+  HUMAN_VERIFIED = 'HUMAN_VERIFIED'
 }
 
 export enum DifficultyLevel {
@@ -16,11 +26,77 @@ export enum DifficultyLevel {
   ADVANCED = 'Advanced (C1-C2)'
 }
 
+export enum ConfidenceLevel {
+  LOW = 'Low',
+  MEDIUM = 'Medium',
+  HIGH = 'High'
+}
+
+export interface Mistake {
+  id: string;
+  original: string;
+  correction: string;
+  rule: string;
+  category: string;
+  timestamp: Date;
+}
+
+export interface SessionSummary {
+  durationMinutes: number;
+  messageCount: number;
+  vocabCount: number;
+  mistakeCount: number;
+  fluencyScore: number;
+  commonMistakes: { category: string; count: number }[];
+}
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  progress: number;
+  maxProgress: number;
+  rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary';
+}
+
+export interface SkillNode {
+  id: string;
+  label: string;
+  status: 'locked' | 'available' | 'mastered';
+  category: 'Grammar' | 'Vocabulary' | 'Fluency';
+  points: number;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  name: string;
+  points: number;
+  isCurrentUser: boolean;
+  avatar: string;
+  city?: string;
+}
+
+export interface UserStats {
+  currentLevel: string;
+  experience: number;
+  nextLevelExp: number;
+  points: number;
+  totalAssessments: number;
+  masteredVocabulary: number;
+  learningVocabulary: number;
+  streakDays: number;
+  rank: number;
+}
+
 export interface CriteriaScore {
   criteria: string;
   score: number;
   maxScore: number;
   feedback: string;
+  confidence: ConfidenceLevel;
+  keyFactors: string[];
 }
 
 export interface WritingCorrection {
@@ -29,17 +105,46 @@ export interface WritingCorrection {
   explanation: string;
 }
 
+export interface RecommendedLesson {
+  title: string;
+  category: 'Grammar' | 'Vocabulary' | 'Pronunciation' | 'Fluency';
+  rationale: string;
+}
+
+export interface ReferenceAnswer {
+  band: string;
+  content: string;
+  rationale: string;
+}
+
+export interface VerificationDetails {
+  tutorId: string;
+  tutorName: string;
+  justification: string;
+  voiceNoteUrl?: string;
+  verifiedAt: string;
+}
+
 export interface AssessmentResult {
+  id: string;
   overallScore: number;
-  cefrLevel: string; // e.g., "B2", "C1"
-  transcription?: string; // For speaking
+  cefrLevel: string;
+  transcription?: string;
   criteriaScores: CriteriaScore[];
   generalFeedback: string;
-  corrections?: WritingCorrection[]; // For writing
-  improvedVersion?: string; // For writing
-  pronunciationErrors?: string[]; // For speaking
-  audioQualityWarning?: string | null; // Warning for noise/low volume
-  flagForReview: boolean; // If AI is uncertain
+  corrections?: WritingCorrection[];
+  improvedVersion?: string;
+  pronunciationErrors?: string[];
+  audioQualityWarning?: string | null;
+  flagForReview: boolean;
+  recommendedLessons?: RecommendedLesson[];
+  learningPath?: string[];
+  referenceAnswers?: ReferenceAnswer[];
+  status: AssessmentStatus;
+  verification?: VerificationDetails;
+  userInput: string;
+  difficulty: DifficultyLevel;
+  type: AssessmentType;
 }
 
 export interface HistoryItem {
@@ -48,6 +153,7 @@ export interface HistoryItem {
   type: AssessmentType;
   score: number;
   preview: string;
+  status: AssessmentStatus;
 }
 
 export interface ChatMessage {
@@ -57,10 +163,10 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
-export interface UserStats {
-  currentLevel: string;
-  totalAssessments: number;
-  masteredVocabulary: number;
-  learningVocabulary: number;
-  streakDays: number;
+export interface Tutor {
+  id: string;
+  name: string;
+  specialty: string;
+  avatar: string;
+  status: 'online' | 'offline' | 'busy';
 }

@@ -1,16 +1,15 @@
+
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { DifficultyLevel } from "../types";
 
-const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+// Fix: Always initialize GoogleGenAI with a named parameter using process.env.API_KEY directly.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// Helper to convert blob to base64
 export const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const result = reader.result as string;
-      // Handle both data URL and raw base64 if necessary, though FileReader.readAsDataURL returns data URL
       const base64 = result.includes(',') ? result.split(',')[1] : result;
       resolve(base64);
     };
@@ -19,25 +18,42 @@ export const blobToBase64 = (blob: Blob): Promise<string> => {
   });
 };
 
+const CRITERIA_SCORE_SCHEMA: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    criteria: { type: Type.STRING },
+    score: { type: Type.NUMBER },
+    maxScore: { type: Type.NUMBER },
+    feedback: { type: Type.STRING },
+    confidence: { type: Type.STRING, description: "Low, Medium, or High" },
+    keyFactors: { 
+      type: Type.ARRAY, 
+      items: { type: Type.STRING },
+      description: "2-3 short strings explaining the specific technical factors behind this score component"
+    }
+  }
+};
+
+const REFERENCE_ANSWER_SCHEMA: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    band: { type: Type.STRING, description: "e.g. 6.0, 7.0, 8.0" },
+    content: { type: Type.STRING, description: "A reference sample answer at this band level for the same context" },
+    rationale: { type: Type.STRING, description: "Why this content qualifies for this specific band" }
+  }
+};
+
 const WRITING_SCHEMA: Schema = {
   type: Type.OBJECT,
   properties: {
-    overallScore: { type: Type.NUMBER, description: "Score from 0 to 10" },
-    cefrLevel: { type: Type.STRING, description: "CEFR Level (e.g., A1, B2, C1)" },
-    flagForReview: { type: Type.BOOLEAN, description: "Set to true if text is ambiguous, too short, or AI is uncertain" },
-    generalFeedback: { type: Type.STRING, description: "Encouraging feedback for the learner" },
-    improvedVersion: { type: Type.STRING, description: "A rewritten native-like version of the input" },
+    overallScore: { type: Type.NUMBER },
+    cefrLevel: { type: Type.STRING },
+    flagForReview: { type: Type.BOOLEAN },
+    generalFeedback: { type: Type.STRING },
+    improvedVersion: { type: Type.STRING },
     criteriaScores: {
       type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          criteria: { type: Type.STRING, description: "RSA/IELTS criteria: Grammar, Vocabulary, Coherence, Task Achievement" },
-          score: { type: Type.NUMBER },
-          maxScore: { type: Type.NUMBER },
-          feedback: { type: Type.STRING }
-        }
-      }
+      items: CRITERIA_SCORE_SCHEMA
     },
     corrections: {
       type: Type.ARRAY,
@@ -49,6 +65,26 @@ const WRITING_SCHEMA: Schema = {
           explanation: { type: Type.STRING }
         }
       }
+    },
+    recommendedLessons: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          category: { type: Type.STRING },
+          rationale: { type: Type.STRING }
+        }
+      }
+    },
+    learningPath: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING }
+    },
+    referenceAnswers: {
+      type: Type.ARRAY,
+      items: REFERENCE_ANSWER_SCHEMA,
+      description: "Provide high-quality reference examples for Band 6, 7, and 8 based on the student's topic."
     }
   }
 };
@@ -56,55 +92,63 @@ const WRITING_SCHEMA: Schema = {
 const SPEAKING_SCHEMA: Schema = {
   type: Type.OBJECT,
   properties: {
-    overallScore: { type: Type.NUMBER, description: "Score from 0 to 10" },
-    cefrLevel: { type: Type.STRING, description: "CEFR Level (e.g., A1, B2, C1)" },
-    transcription: { type: Type.STRING, description: "The transcribed text from audio" },
-    audioQualityWarning: { type: Type.STRING, description: "Warning message if audio is noisy/unclear, else null", nullable: true },
-    flagForReview: { type: Type.BOOLEAN, description: "Set to true if audio is unintelligible or AI is uncertain" },
-    generalFeedback: { type: Type.STRING, description: "Feedback on accent, intonation, and clarity" },
+    overallScore: { type: Type.NUMBER },
+    cefrLevel: { type: Type.STRING },
+    transcription: { type: Type.STRING },
+    audioQualityWarning: { type: Type.STRING, nullable: true },
+    flagForReview: { type: Type.BOOLEAN },
+    generalFeedback: { type: Type.STRING },
     pronunciationErrors: {
       type: Type.ARRAY,
-      items: { type: Type.STRING },
-      description: "List of words that were mispronounced"
+      items: { type: Type.STRING }
     },
     criteriaScores: {
+      type: Type.ARRAY,
+      items: CRITERIA_SCORE_SCHEMA
+    },
+    recommendedLessons: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
-          criteria: { type: Type.STRING, description: "RSA criteria: Pronunciation, Fluency, Grammar/Accuracy, Vocabulary/Range" },
-          score: { type: Type.NUMBER },
-          maxScore: { type: Type.NUMBER },
-          feedback: { type: Type.STRING }
+          title: { type: Type.STRING },
+          category: { type: Type.STRING },
+          rationale: { type: Type.STRING }
         }
       }
+    },
+    learningPath: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING }
+    },
+    referenceAnswers: {
+      type: Type.ARRAY,
+      items: REFERENCE_ANSWER_SCHEMA,
+      description: "Provide high-quality reference transcriptions for Band 6, 7, and 8 based on the student's topic."
     }
   }
 };
 
 export const assessWriting = async (text: string, level: DifficultyLevel) => {
-  if (!text) throw new Error("Text is required");
-
   const prompt = `
-    Act as an expert IELTS and English tutor for Vietnamese learners. 
-    Target Level: ${level}.
-    Analyze the following text. 
-    1. Provide an overall score (0-10) and an estimated CEFR Level (A1-C2).
-    2. Score based on RSA/IELTS criteria: Grammar Range & Accuracy, Vocabulary Resource, Coherence & Cohesion, and Task Response.
-    3. Identify specific Vietnamese common errors (e.g., article misuse, verb tense consistency).
-    4. Provide a rewritten 'Native Speaker' version.
-    5. If the text is nonsensical, too short to judge, or you are unsure, set 'flagForReview' to true.
+    Act as an expert IELTS and English tutor. Target Level: ${level}.
+    Analyze the text provided. 
+    1. Score components (Grammar, Vocabulary, Coherence, Task Response) with confidence levels.
+    2. Provide key factors for each score.
+    3. Generate 3 reference answers (Band 6, 7, 8) relevant to the user's topic to show them what 'better' looks like.
+    4. Provide grammar corrections and a native version.
   `;
 
+  // Fix: Call generateContent directly on ai.models and use the .text property to get the string result.
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3-flash-preview',
     contents: [
       { role: 'user', parts: [{ text: prompt }, { text: `Student Text: "${text}"` }] }
     ],
     config: {
       responseMimeType: 'application/json',
       responseSchema: WRITING_SCHEMA,
-      temperature: 0.4
+      temperature: 0.3
     }
   });
 
@@ -113,23 +157,17 @@ export const assessWriting = async (text: string, level: DifficultyLevel) => {
 
 export const assessSpeaking = async (audioBase64: string, mimeType: string, level: DifficultyLevel) => {
   const prompt = `
-    Act as an expert pronunciation coach for Vietnamese learners of English.
-    Target Level: ${level}.
+    Act as an expert pronunciation and speaking coach. Target Level: ${level}.
     Listen to the audio.
-    1. Assess audio quality. If it is too noisy, quiet, or unclear, provide a warning in 'audioQualityWarning'.
-    2. Transcribe accurately.
-    3. Grade based on RSA/Standard Speaking Rubric criteria: 
-       - Pronunciation (Intonation, Stress, Phonics)
-       - Fluency & Coherence
-       - Grammar & Accuracy
-       - Vocabulary & Range
-    4. Estimate the CEFR Level (A1-C2).
-    5. Check for Vietnamese specific issues: dropped ending sounds (s, t, k, ed), short/long vowel confusion, flat intonation.
-    6. If the audio is unintelligible or you are uncertain, set 'flagForReview' to true.
+    1. Assess with confidence levels for Pronunciation, Fluency, Grammar, and Vocabulary.
+    2. Provide key factors for why each score was assigned (e.g. "dropped s", "flat intonation", "hesitation markers").
+    3. Provide 3 reference transcripts (Band 6, 7, 8) for this topic.
+    4. Identify specific pronunciation errors.
   `;
 
+  // Fix: Call generateContent directly on ai.models and use the .text property to get the string result.
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3-flash-preview',
     contents: [
       {
         role: 'user',
@@ -147,7 +185,7 @@ export const assessSpeaking = async (audioBase64: string, mimeType: string, leve
     config: {
       responseMimeType: 'application/json',
       responseSchema: SPEAKING_SCHEMA,
-      temperature: 0.4
+      temperature: 0.3
     }
   });
 
@@ -155,8 +193,9 @@ export const assessSpeaking = async (audioBase64: string, mimeType: string, leve
 };
 
 export const createTutorChat = (systemInstruction: string) => {
+  // Fix: Chat creation using ai.chats.create for complex text tasks.
   return ai.chats.create({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3-flash-preview',
     config: {
       systemInstruction: systemInstruction,
       temperature: 0.7,
