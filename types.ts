@@ -1,35 +1,39 @@
-
 export enum AssessmentType {
-  WRITING = 'WRITING',
-  SPEAKING = 'SPEAKING'
+  WRITING = "WRITING",
+  SPEAKING = "SPEAKING",
 }
 
 export enum ViewMode {
-  DASHBOARD = 'DASHBOARD',
-  WRITING = 'WRITING',
-  SPEAKING = 'SPEAKING',
-  TUTOR = 'TUTOR',
-  TUTOR_PORTAL = 'TUTOR_PORTAL',
-  GAMIFICATION = 'GAMIFICATION'
+  DASHBOARD = "DASHBOARD",
+  WRITING = "WRITING",
+  SPEAKING = "SPEAKING",
+  TUTOR = "TUTOR",
+  TUTOR_PORTAL = "TUTOR_PORTAL",
+  GAMIFICATION = "GAMIFICATION",
 }
 
 export enum AssessmentStatus {
-  PENDING_AI = 'PENDING_AI',
-  AI_ESTIMATE = 'AI_ESTIMATE',
-  PENDING_HUMAN = 'PENDING_HUMAN',
-  HUMAN_VERIFIED = 'HUMAN_VERIFIED'
+  PENDING_AI = "PENDING_AI",
+  AI_ESTIMATE = "AI_ESTIMATE",
+  PENDING_HUMAN = "PENDING_HUMAN",
+  HUMAN_VERIFIED = "HUMAN_VERIFIED",
 }
 
-export enum DifficultyLevel {
-  BEGINNER = 'Beginner (A1-A2)',
-  INTERMEDIATE = 'Intermediate (B1-B2)',
-  ADVANCED = 'Advanced (C1-C2)'
+export enum TestType {
+  IELTS = "IELTS",
+  TOEIC = "TOEIC",
+}
+
+export enum TargetLevel {
+  BEGINNER = "Beginner (A1-A2)",
+  INTERMEDIATE = "Intermediate (B1-B2)",
+  ADVANCED = "Advanced (C1-C2)",
 }
 
 export enum ConfidenceLevel {
-  LOW = 'Low',
-  MEDIUM = 'Medium',
-  HIGH = 'High'
+  LOW = "Low",
+  MEDIUM = "Medium",
+  HIGH = "High",
 }
 
 export interface Mistake {
@@ -58,14 +62,14 @@ export interface Achievement {
   unlocked: boolean;
   progress: number;
   maxProgress: number;
-  rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary';
+  rarity: "Common" | "Rare" | "Epic" | "Legendary";
 }
 
 export interface SkillNode {
   id: string;
   label: string;
-  status: 'locked' | 'available' | 'mastered';
-  category: 'Grammar' | 'Vocabulary' | 'Fluency';
+  status: "locked" | "available" | "mastered";
+  category: "Grammar" | "Vocabulary" | "Fluency";
   points: number;
 }
 
@@ -107,7 +111,7 @@ export interface WritingCorrection {
 
 export interface RecommendedLesson {
   title: string;
-  category: 'Grammar' | 'Vocabulary' | 'Pronunciation' | 'Fluency';
+  category: "Grammar" | "Vocabulary" | "Pronunciation" | "Fluency";
   rationale: string;
 }
 
@@ -143,7 +147,8 @@ export interface AssessmentResult {
   status: AssessmentStatus;
   verification?: VerificationDetails;
   userInput: string;
-  difficulty: DifficultyLevel;
+  testType: TestType;
+  targetLevel: TargetLevel;
   type: AssessmentType;
 }
 
@@ -158,7 +163,7 @@ export interface HistoryItem {
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'model';
+  role: "user" | "model";
   text: string;
   timestamp: Date;
 }
@@ -168,5 +173,5 @@ export interface Tutor {
   name: string;
   specialty: string;
   avatar: string;
-  status: 'online' | 'offline' | 'busy';
+  status: "online" | "offline" | "busy";
 }
